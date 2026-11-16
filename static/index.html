@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinic Booking</title>
+<style>
+  :root {
+    --bg: #f6f7f4; --card: #ffffff; --ink: #1d2420; --muted: #5f6b64;
+    --line: #dfe4df; --brand: #1f6f54; --brand-ink: #ffffff; --soft: #e8f2ed;
+    --bad: #b3261e; --bad-soft: #fbeceb; --taken: #eef0ee;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--brand); color: var(--brand-ink); padding: 20px 16px; }
+  header h1 { margin: 0 auto; max-width: 880px; font-size: 1.4rem; font-weight: 650; }
+  header p { margin: 4px auto 0; max-width: 880px; opacity: .85; font-size: .95rem; }
+  main { max-width: 880px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  h2 { margin: 0 0 12px; font-size: 1.05rem; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  input, select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+                  font: inherit; background: #fff; color: var(--ink); }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer;
+           background: var(--brand); color: var(--brand-ink); font-weight: 600; }
+  button.ghost { background: var(--soft); color: var(--brand); }
+  button.danger { background: var(--bad-soft); color: var(--bad); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: grid; gap: 12px; grid-template-columns: 1fr auto; align-items: end; }
+  .grid2 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+  .slots { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .slot { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 6px; }
+  .slot.taken { background: var(--taken); color: var(--muted); }
+  .slot .when { font-weight: 600; }
+  .slot .who { font-size: .9rem; color: var(--muted); }
+  .tag { font-size: .75rem; font-weight: 600; justify-self: start; padding: 2px 8px; border-radius: 99px;
+         background: var(--soft); color: var(--brand); }
+  .slot.taken .tag { background: #dde1de; color: var(--muted); }
+  .msg { margin-top: 12px; padding: 12px; border-radius: 8px; display: none; }
+  .msg.ok { display: block; background: var(--soft); }
+  .msg.bad { display: block; background: var(--bad-soft); color: var(--bad); }
+  .confirm dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 0; }
+  .confirm dt { color: var(--muted); }
+  .confirm dd { margin: 0; word-break: break-all; }
+  .hidden { display: none; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  @media (max-width: 600px) { .row, .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Clinic Booking</h1>
+  <p>Pick a free slot, book it, and get your confirmation.</p>
+</header>
+
+<main>
+  <section>
+    <h2>1. Connect</h2>
+    <div class="row">
+      <div>
+        <label for="key">API key</label>
+        <input id="key" type="password" placeholder="Enter the clinic API key" autocomplete="off">
+      </div>
+      <button id="connect">Load slots</button>
+    </div>
+    <div id="connectMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>2. Available slots</h2>
+    <div class="row" style="margin-bottom:12px">
+      <div>
+        <label for="provider">Provider</label>
+        <select id="provider"><option value="">All providers</option></select>
+      </div>
+      <button class="ghost" id="refresh">Refresh</button>
+    </div>
+    <div id="slots" class="slots"><p class="muted">Enter the API key above to see slots.</p></div>
+  </section>
+
+  <section id="bookBox" class="hidden">
+    <h2>3. Book <span id="bookWhat"></span></h2>
+    <div class="grid2">
+      <div><label for="name">Full name</label><input id="name" placeholder="Ada Obi"></div>
+      <div><label for="email">Email</label><input id="email" type="email" placeholder="ada@example.com"></div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px">
+      <button id="book">Confirm booking</button>
+      <button class="ghost" id="cancelPick">Choose another slot</button>
+    </div>
+    <div id="bookMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>4. Look up or cancel a booking</h2>
+    <div class="row">
+      <div><label for="lookupId">Booking ID</label><input id="lookupId" placeholder="bk_..."></div>
+      <button id="lookup">Look up</button>
+    </div>
+    <div id="lookupMsg" class="msg"></div>
+  </section>
+
+  <section>
+    <h2>5. My bookings</h2>
+    <div class="row">
+      <div><label for="mineEmail">Email</label><input id="mineEmail" type="email" placeholder="ada@example.com"></div>
+      <button id="mine">Show</button>
+    </div>
+    <div id="mineBox" style="margin-top:12px"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let chosen = null;      // slot being booked
+let nextCursor = null;  // paging for "My bookings"
+
+// Remember the key for this browser tab only.
+try { $("key").value = sessionStorage.getItem("apiKey") || ""; } catch (e) {}
+
+async function api(path, options = {}) {
+  const headers = { "Content-Type": "application/json", "X-API-Key": $("key").value.trim(), ...(options.headers || {}) };
+  const res = await fetch(path, { ...options, headers });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  return { ok: res.ok, status: res.status, data, headers: res.headers };
+}
+
+function show(el, kind, html) { el.className = "msg " + kind; el.innerHTML = html; }
+function hide(el) { el.className = "msg"; el.innerHTML = ""; }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmt(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? iso : d.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function errorText(r) {
+  if (r.status === 429) return `Too many attempts. Please wait ${r.headers.get("Retry-After") || "a few"} seconds.`;
+  return (r.data && r.data.error) ? r.data.error : `Request failed (${r.status})`;
+}
+
+function bookingCard(b, title) {
+  return `<div class="confirm"><strong>${esc(title)}</strong><dl>
+    <dt>Booking ID</dt><dd>${esc(b.id)}</dd>
+    <dt>Slot</dt><dd>${esc(b.slot_id)}</dd>
+    <dt>Name</dt><dd>${esc(b.name)}</dd>
+    <dt>Email</dt><dd>${esc(b.email)}</dd>
+    <dt>Status</dt><dd>${esc(b.status)}</dd>
+    <dt>Booked at</dt><dd>${esc(fmt(b.created_at))}</dd></dl></div>`;
+}
+
+async function loadSlots() {
+  const box = $("slots");
+  const provider = $("provider").value;
+  const r = await api("/slots" + (provider ? "?provider=" + encodeURIComponent(provider) : ""));
+  if (!r.ok) { show($("connectMsg"), "bad", esc(errorText(r))); box.innerHTML = ""; return; }
+  hide($("connectMsg"));
+  try { sessionStorage.setItem("apiKey", $("key").value.trim()); } catch (e) {}
+
+  if (!provider) {  // fill the provider filter from the full list
+    const names = [...new Set(r.data.slots.map(s => s.provider))].sort();
+    $("provider").innerHTML = `<option value="">All providers</option>` +
+      names.map(n => `<option>${esc(n)}</option>`).join("");
+  }
+  const now = Date.now();
+  const list = r.data.slots;
+  if (!list.length) { box.innerHTML = `<p class="muted">No slots yet.</p>`; return; }
+  box.innerHTML = list.map(s => {
+    const past = new Date(s.start).getTime() <= now;
+    const free = s.available && !past;
+    const label = past ? "Started" : (s.available ? "Free" : "Booked");
+    return `<div class="slot ${free ? "" : "taken"}">
+      <span class="tag">${label}</span>
+      <span class="when">${esc(fmt(s.start))}</span>
+      <span class="who">${esc(s.provider)} · ${esc(s.id)}</span>
+      <button ${free ? "" : "disabled"} data-id="${esc(s.id)}" data-label="${esc(fmt(s.start) + " with " + s.provider)}">Book</button>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("button[data-id]").forEach(b => b.onclick = () => pick(b.dataset.id, b.dataset.label));
+}
+
+function pick(id, label) {
+  chosen = id;
+  $("bookWhat").textContent = label;
+  $("bookBox").classList.remove("hidden");
+  hide($("bookMsg"));
+  $("name").focus();
+}
+
+async function book() {
+  if (!chosen) return;
+  $("book").disabled = true;
+  const body = { slot_id: chosen, name: $("name").value, email: $("email").value };
+  // One key per click: if the network retries, the server won't double-book.
+  const r = await api("/bookings", { method: "POST", body: JSON.stringify(body),
+                                     headers: { "Idempotency-Key": crypto.randomUUID() } });
+  $("book").disabled = false;
+  if (r.ok) {
+    show($("bookMsg"), "ok", bookingCard(r.data, "Booking confirmed. Keep your booking ID."));
+    $("lookupId").value = r.data.id;
+    chosen = null;
+    loadSlots();
+  } else {
+    show($("bookMsg"), "bad", esc(errorText(r)));
+  }
+}
+
+async function lookup() {
+  const id = $("lookupId").value.trim();
+  if (!id) return;
+  const r = await api("/bookings/" + encodeURIComponent(id));
+  if (!r.ok) return show($("lookupMsg"), "bad", esc(errorText(r)));
+  const b = r.data;
+  show($("lookupMsg"), "ok", bookingCard(b, "Booking found") +
+    (b.status === "confirmed" ? `<button class="danger" id="doCancel" style="margin-top:10px">Cancel this booking</button>` : ""));
+  const c = $("doCancel");
+  if (c) c.onclick = async () => {
+    const r2 = await api("/bookings/" + encodeURIComponent(b.id), { method: "DELETE" });
+    if (!r2.ok) return show($("lookupMsg"), "bad", esc(errorText(r2)));
+    show($("lookupMsg"), "ok", bookingCard(r2.data, "Booking cancelled. The slot is free again."));
+    loadSlots();
+  };
+}
+
+async function mine(more = false) {
+  const email = $("mineEmail").value.trim();
+  if (!email) return;
+  let url = "/bookings?limit=5&email=" + encodeURIComponent(email);
+  if (more && nextCursor) url += "&cursor=" + encodeURIComponent(nextCursor);
+  const r = await api(url);
+  const box = $("mineBox");
+  if (!r.ok) { box.innerHTML = `<div class="msg bad">${esc(errorText(r))}</div>`; return; }
+  nextCursor = r.data.next_cursor;
+  const rows = r.data.bookings.map(b => `<tr><td>${esc(b.id)}</td><td>${esc(b.slot_id)}</td><td>${esc(b.status)}</td><td>${esc(fmt(b.created_at))}</td></tr>`).join("");
+  const table = `<table><thead><tr><th>Booking ID</th><th>Slot</th><th>Status</th><th>Booked</th></tr></thead><tbody>${rows || `<tr><td colspan="4" class="muted">No bookings.</td></tr>`}</tbody></table>`;
+  box.innerHTML = table + (nextCursor ? `<button class="ghost" id="moreBtn" style="margin-top:10px">Next page</button>` : "");
+  if (nextCursor) $("moreBtn").onclick = () => mine(true);
+}
+
+$("connect").onclick = loadSlots;
+$("refresh").onclick = loadSlots;
+$("provider").onchange = loadSlots;
+$("book").onclick = book;
+$("cancelPick").onclick = () => { chosen = null; $("bookBox").classList.add("hidden"); };
+$("lookup").onclick = lookup;
+$("mine").onclick = () => mine(false);
+if ($("key").value) loadSlots();
+</script>
+</body>
+</html>
